@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>IRON FORCE: DEMO</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+        :root { --g: #0f0; --b: #0cf; --p: #f0f; --r: #f33; --tg: #0088cc; }
+        
+        /* ГЛОБАЛЬНЫЙ ЗАПРЕТ ВЫДЕЛЕНИЯ И КОНТЕКСТНОГО МЕНЮ */
+        * { 
+            box-sizing: border-box; 
+            font-family: 'Press Start 2P', cursive; 
+            text-transform: uppercase;
+            -webkit-touch-callout: none; /* Запрет системного меню на iOS */
+            -webkit-user-select: none;   /* Запрет выделения текста */
+            user-select: none;
+            touch-action: manipulation;  /* Оптимизация тапов */
+        }
+
+        body, html { margin: 0; padding: 0; background: #000; color: #fff; overflow: hidden; width: 100vw; height: 100vh; }
+        
+        #tg-fixed-link { 
+            position: fixed; top: 20px; left: 20px; 
+            background: var(--tg); color: white; padding: 12px; 
+            z-index: 9999; text-decoration: none; border: 2px solid #fff;
+            font-size: 10px; box-shadow: 4px 4px 0px #000;
+        }
+
+        .screen { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; background: #050505; padding: 15px; z-index: 100; }
+        .hidden { display: none !important; }
+
+        .btn-retro {
+            width: 300px; padding: 18px; margin: 10px 0; background: #000; border: 3px solid #fff;
+            color: #fff; font-size: 10px; cursor: pointer; box-shadow: 6px 6px 0px var(--b);
+            outline: none;
+        }
+
+        .shelf { width: 100%; flex: 1; display: flex; overflow-x: auto; gap: 15px; padding: 20px; align-items: flex-start; }
+        .card { min-width: 280px; border: 4px solid var(--g); background: #111; padding: 15px; display: flex; flex-direction: column; }
+        .stat-label { font-size: 8px; margin-top: 8px; display: flex; justify-content: space-between; }
+        .stat-bar { width: 100%; height: 10px; background: #222; border: 1px solid #444; margin-top: 4px; }
+        .fill { height: 100%; }
+
+        #hud { position: absolute; top: 10px; width: 100%; padding: 0 20px; display: flex; justify-content: space-between; pointer-events: none; z-index: 10; }
+        .hp-bar { width: 200px; height: 18px; border: 2px solid #fff; background: #000; }
+        .hp-val { height: 100%; background: var(--g); }
+
+        #controls { position: absolute; bottom: 30px; width: 100%; display: flex; justify-content: space-between; padding: 0 25px; pointer-events: none; z-index: 10; }
+        .grid { display: grid; grid-template-columns: repeat(3, 60px); gap: 8px; pointer-events: all; }
+        .key { 
+            width: 60px; height: 60px; border: 3px solid #fff; 
+            display: flex; align-items: center; justify-content: center; 
+            background: rgba(0,0,0,0.8); font-size: 18px; color: #fff;
+            box-shadow: 4px 4px 0px #000;
+        }
+        /* Состояние нажатия для визуала */
+        .key.active { background: var(--b); transform: translate(2px, 2px); box-shadow: 0px 0px 0px #000; }
+
+        .btn-fire { 
+            width: 100px; height: 100px; border-radius: 50%; border: 5px solid var(--r); 
+            background: #000; color: #fff; pointer-events: all; font-size: 12px;
+            box-shadow: 0 0 15px var(--r);
+        }
+        .btn-fire.active { background: var(--r); }
+    </style>
+</head>
+<body oncontextmenu="return false;"> <a href="https://t.me/Endless_Studio_official" target="_blank" id="tg-fixed-link">TELEGRAM</a>
+
+<div id="ui">
+    <div id="menu" class="screen">
+        <h1 style="color:var(--g); font-size: 26px; margin: 60px 0;">IRON FORCE DEMO</h1>
+        <div id="stats" style="font-size: 10px; line-height: 2; margin-bottom: 20px; text-align: center;"></div>
+        <button class="btn-retro" onclick="game.start()">В БОЙ</button>
+        <button class="btn-retro" onclick="ui.open('hangar')">АНГАР ТАНКОВ</button>
+        <button class="btn-retro" style="border-color:var(--p); box-shadow: 6px 6px 0px var(--p);" onclick="ui.open('vip')">VIP МАГАЗИН</button>
+    </div>
+
+    <div id="shop" class="screen hidden">
+        <h2 id="stitle" style="color:var(--b); margin-bottom:20px;"></h2>
+        <div class="shelf" id="slist"></div>
+        <button class="btn-retro" onclick="ui.close()">НАЗАД</button>
+    </div>
+
+    <div id="hud" class="hidden">
+        <div class="hp-bar"><div id="hp-f" class="hp-val"></div></div>
+        <div id="h-txt" style="font-size: 10px; color: var(--g);"></div>
+    </div>
+
+    <div id="controls" class="hidden">
+        <div class="grid">
+            <div></div><div class="key" id="btn-W">↑</div><div></div>
+            <div class="key" id="btn-A">←</div><div class="key" id="btn-S">↓</div><div class="key" id="btn-D">→</div>
+        </div>
+        <div style="display:flex; gap:15px; align-items:flex-end;">
+            <div class="grid" style="grid-template-columns: repeat(2, 50px);">
+                <div class="key" style="border-radius:50%" id="btn-TL">↺</div>
+                <div class="key" style="border-radius:50%" id="btn-TR">↻</div>
+            </div>
+            <button class="btn-fire" id="btn-FIRE">FIRE</button>
+        </div>
+    </div>
+</div>
+
+<canvas id="c"></canvas>
+
+<script>
+// Данные танков и логика сохранены из предыдущей версии
+const TANKS = [
+    { n: 'RECON T1', hp: 300, dmg: 40, spd: 80, p: 0, ds: 'БЫСТРЫЙ РАЗВЕДЧИК.' },
+    { n: 'STRIKER', hp: 550, dmg: 75, spd: 95, p: 4000, ds: 'СКОРОСТЬ - ЕГО ВСЁ.' },
+    { n: 'T-34/85', hp: 1200, dmg: 140, spd: 65, p: 9000, ds: 'ЛЕГЕНДА ВОЙНЫ.' },
+    { n: 'PANZER V', hp: 1800, dmg: 180, spd: 55, p: 15000, ds: 'ТОЧНОСТЬ И СИЛА.' },
+    { n: 'SHERMAN', hp: 2200, dmg: 210, spd: 50, p: 24000, ds: 'ТЯЖЕЛЫЙ МОЛОТ.' },
+    { n: 'GHOST', hp: 1400, dmg: 130, spd: 140, p: 42000, ds: 'САМЫЙ БЫСТРЫЙ В ИГРЕ.' },
+    { n: 'LEOPARD 2', hp: 3500, dmg: 310, spd: 110, p: 65000, ds: 'СОВРЕМЕННЫЙ ТАНК.' },
+    { n: 'RHINO', hp: 4800, dmg: 450, spd: 40, p: 90000, ds: 'ЖЕЛЕЗНЫЙ ТАРАН.' },
+    { n: 'MAUS X', hp: 9000, dmg: 600, spd: 30, k: 50, ds: 'КРЕПОСТЬ.' },
+    { n: 'APOCALYPSE', hp: 7000, dmg: 950, spd: 45, p: 140000, ds: 'ДВОЙНОЙ УРОН.' },
+    { n: 'RAILGUNNER', hp: 4500, dmg: 2000, spd: 70, k: 100, ds: 'УБИЙЦА БОССОВ.' }
+];
+
+let st = JSON.parse(localStorage.getItem('IF_ULT_V15')) || { m:0, cp:0, kl:0, ow:[1,0,0,0,0,0,0,0,0,0,0], sl:0, v:{rep:0,nos:0,nuk:0,gold:0} };
+const save = () => localStorage.setItem('IF_ULT_V15', JSON.stringify(st));
+
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+
+class Tank {
+    constructor(x,y,idx,team,isP=false) {
+        const s = TANKS[idx];
+        Object.assign(this,{x,y,team,hp:s.hp,mH:s.hp,spd:s.spd/12,dmg:s.dmg,idx,isP,a:0,ta:0,ls:0,dd:false,rc:0,nos:1,tr:0});
+    }
+    update() {
+        if(this.dd) return;
+        let cs = this.spd * this.nos;
+        let mv = false;
+        if(this.isP) {
+            if(game.ks.W){this.x+=Math.cos(this.a)*cs;this.y+=Math.sin(this.a)*cs;mv=true;}
+            if(game.ks.S){this.x-=Math.cos(this.a)*cs;this.y-=Math.sin(this.a)*cs;mv=true;}
+            if(game.ks.A)this.a-=0.04; if(game.ks.D)this.a+=0.04;
+            if(game.ks.TL)this.ta-=0.06; if(game.ks.TR)this.ta+=0.06;
+            if(game.ks.FIRE)this.shoot();
+        } else {
+            let t=null,md=1000; game.units.forEach(u=>{if(!u.dd&&u.team!==this.team){let d=Math.hypot(u.x-this.x,u.y-this.y);if(d<md){md=d;t=u;}}});
+            if(t){this.a=this.ta=Math.atan2(t.y-this.y,t.x-this.x);if(md>300){this.x+=Math.cos(this.a)*cs*0.7;this.y+=Math.sin(this.a)*cs*0.7;mv=true;}if(Math.random()<0.02)this.shoot();}
+        }
+        if(mv) this.tr = (this.tr + 2) % 20;
+        if(this.rc>0)this.rc-=4;
+    }
+    shoot() {
+        if(Date.now()-this.ls>850){
+            game.bullets.push({x:this.x+Math.cos(this.ta)*55,y:this.y+Math.sin(this.ta)*55,a:this.ta,d:this.dmg,team:this.team,l:50});
+            this.ls=Date.now(); this.rc=25;
+        }
+    }
+    draw(cam) {
+        if(this.dd) return;
+        ctx.save(); ctx.translate(this.x-cam.x,this.y-cam.y);
+        ctx.rotate(this.a);
+        ctx.fillStyle='#111'; ctx.fillRect(-38, -28, 76, 12); ctx.fillRect(-38, 16, 76, 12);
+        ctx.fillStyle='#333';
+        for(let i=0; i<6; i++) {
+            let off = (i*14 + this.tr) % 76;
+            ctx.fillRect(-38 + off, -28, 4, 12); ctx.fillRect(-38 + off, 16, 4, 12);
+        }
+        ctx.fillStyle=(this.isP && st.v.gold)?'#FFD700':(this.team===0?'#3d5a3d':'#7a2a2a');
+        ctx.fillRect(-30,-20,60,40); ctx.strokeRect(-30,-20,60,40);
+        ctx.rotate(this.ta-this.a);
+        ctx.fillRect(-18,-18,36,36); ctx.strokeRect(-18,-18,36,36);
+        ctx.fillStyle='#222'; ctx.fillRect(15-this.rc,-6,45,12);
+        ctx.restore();
+    }
+}
+
+const game = {
+    running:false, units:[], bullets:[], ks:{},
+    start() {
+        this.bullets=[]; this.units = [new Tank(2000,2000,st.sl,0,true)];
+        for(let i=0;i<4;i++) this.units.push(new Tank(1800+i*80,2300,0,0));
+        for(let i=0;i<5;i++) this.units.push(new Tank(Math.random()*4000,Math.random()*4000,0,1));
+        this.player = this.units[0];
+        ['menu','hud','controls','tg-fixed-link'].forEach(id=>{
+            document.getElementById(id).classList.toggle('hidden', id==='menu' || id==='tg-fixed-link');
+        });
+        this.running=true; this.loop();
+    },
+    loop(){
+        if(!this.running) return;
+        ctx.fillStyle="#0a0a0a"; ctx.fillRect(0,0,canvas.width,canvas.height);
+        let cam = {x:this.player.x-canvas.width/2, y:this.player.y-canvas.height/2};
+        this.bullets.forEach((b,i)=>{
+            b.x+=Math.cos(b.a)*22; b.y+=Math.sin(b.a)*22; b.l--;
+            ctx.fillStyle=b.team===0?'#0cf':'#f33'; ctx.fillRect(b.x-cam.x,b.y-cam.y,6,6);
+            this.units.forEach(u=>{
+                if(!u.dd&&u.team!==b.team&&Math.hypot(u.x-b.x,u.y-b.y)<35){
+                    u.hp-=b.d; b.l=0; if(u.hp<=0){u.dd=true; if(b.team===0){st.m+=1500;st.kl++;}}
+                }
+            });
+            if(b.l<=0) this.bullets.splice(i,1);
+        });
+        this.units.forEach(u=>{u.update();u.draw(cam)});
+        document.getElementById('hp-f').style.width=(this.player.hp/this.player.mH*100)+'%';
+        document.getElementById('h-txt').innerHTML=`ДЕНЬГИ: $${st.m} | КИЛЛЫ: ${st.kl}`;
+        if(this.player.dd || this.units.filter(u=>u.team===1&&!u.dd).length===0) { this.running=false; st.m+=2500; st.cp+=30; save(); location.reload(); }
+        else requestAnimationFrame(()=>this.loop());
+    }
+};
+
+const ui = {
+    open(type){
+        document.getElementById('shop').classList.remove('hidden');
+        const list = document.getElementById('slist'); list.innerHTML = '';
+        if(type==='hangar'){
+            document.getElementById('stitle').innerText = 'АРСЕНАЛ';
+            TANKS.forEach((t,i)=>{
+                const has = st.ow[i], lk = t.k && st.kl < t.k;
+                list.innerHTML += `<div class="card" style="${st.sl===i?'border-color:#fff':''}">
+                    <div style="color:#0cf;font-size:12px;margin-bottom:10px;">${t.n}</div>
+                    <div style="font-size:7px;color:#888;height:25px;">${t.ds}</div>
+                    <div class="stat-label"><span>ARMOR</span><span>${t.hp}</span></div>
+                    <div class="stat-bar"><div class="fill" style="width:${t.hp/100}%;background:#0f0"></div></div>
+                    <div class="stat-label"><span>ENGINE</span><span>${t.spd} KM/H</span></div>
+                    <div class="stat-bar"><div class="fill" style="width:${t.spd/1.5}%;background:orange"></div></div>
+                    <button class="btn-retro" style="width:100%;box-shadow:none;margin-top:15px;" onclick="ui.buyT(${i})" ${lk?'disabled':''}>
+                        ${has?(st.sl===i?'ВЫБРАН':'ВЫБРАТЬ'):(lk?t.k+' КИЛЛОВ':t.p+'💰')}
+                    </button>
+                </div>`;
+            });
+        } else {
+            document.getElementById('stitle').innerText = 'VIP МАГАЗИН';
+            const items = [{id:'rep',n:'РЕМКА',ds:'+50% HP',c:20},{id:'nos',n:'АЗОТ',ds:'X2 SPEED',c:40},{id:'nuk',n:'ЯДЕРКА',ds:'X2 DMG',c:100},{id:'gold',n:'ЗОЛОТО',ds:'ЭЛИТ СКИН',c:250}];
+            items.forEach(v=>{
+                list.innerHTML += `<div class="card" style="border-color:#f0f">
+                    <div style="color:#f0f;font-size:10px;">${v.n}</div>
+                    <div style="font-size:7px;color:#aaa;margin:10px 0;">${v.ds}</div>
+                    <button class="btn-retro" style="width:100%;box-shadow:none;border-color:#f0f" onclick="ui.buyV('${v.id}',${v.c})">${v.c} 🏆</button>
+                </div>`;
+            });
+        }
+    },
+    close(){ document.getElementById('shop').classList.add('hidden'); this.upd(); },
+    upd(){ document.getElementById('stats').innerHTML = `БАЛАНС: ${st.m} 💰 | КУБКИ: ${st.cp} 🏆<br>КИЛЛЫ: ${st.kl} 💀`; },
+    buyT(i){ if(st.ow[i])st.sl=i; else if(st.m>=TANKS[i].p){st.m-=TANKS[i].p;st.ow[i]=1;st.sl=i;} save(); this.open('hangar'); },
+    buyV(id,c){ if(st.cp>=c){ if(id==='gold')st.v.gold=1; else st.v[id]=(st.v[id]||0)+1; st.cp-=c; save(); this.open('vip'); }}
+};
+
+function bnd(id,k){ 
+    const el=document.getElementById(id); 
+    el.onpointerdown=(e)=>{
+        e.preventDefault(); 
+        game.ks[k]=true; 
+        el.classList.add('active');
+    }; 
+    el.onpointerup=el.onpointerleave=()=>{
+        game.ks[k]=false; 
+        el.classList.remove('active');
+    }; 
+}
+['W','A','S','D','TL','TR','FIRE'].forEach(k=>bnd('btn-'+k,k));
+window.onresize=()=>{canvas.width=window.innerWidth;canvas.height=window.innerHeight;}; window.onresize(); ui.upd();
+</script>
+</body>
+</html>
